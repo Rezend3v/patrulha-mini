@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Patrulha Mini</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="480" height="640"></canvas>
+    <div id="hud"></div>
+    <div id="overlay" hidden></div>
+  </div>
+  <div id="touch" hidden>
+    <div class="pad">
+      <button data-hold="left" aria-label="Esquerda">◀</button>
+      <div class="col">
+        <button data-hold="up" aria-label="Acelerar">▲</button>
+        <button data-hold="down" aria-label="Frear">▼</button>
+      </div>
+      <button data-hold="right" aria-label="Direita">▶</button>
+    </div>
+    <div class="acts">
+      <button data-tap="stop" class="big">PARAR</button>
+      <button data-tap="yes">Y</button>
+      <button data-tap="no">N</button>
+      <button data-tap="posto">F</button>
+      <button data-tap="end">E</button>
+    </div>
+  </div>
+  <p id="help">Setas/WASD dirigir ou andar · ESPAÇO ordem de parada · F embarcar/desembarcar/interagir · Y/N rádio · E encerrar turno</p>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
