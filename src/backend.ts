@@ -28,7 +28,8 @@ export interface Backend {
   claimSave(code: string): Promise<boolean>;
   /** E-mail linked to the current account, or null (anonymous/offline). */
   accountEmail(): Promise<string | null>;
-  /** Emails a 6-digit code. 'link' adds the e-mail to this account; 'login' signs into an existing one.
+  /** Emails a 6-digit code and/or a link back to this site (depends on the e-mail template).
+   *  'link' adds the e-mail to this account; 'login' signs into an existing one.
    *  Resolves to an error message, or null on success. */
   sendCode(mode: 'link' | 'login', email: string): Promise<string | null>;
   verifyCode(mode: 'link' | 'login', email: string, code: string): Promise<string | null>;
@@ -162,10 +163,12 @@ class SupabaseBackend implements Backend {
 
   async sendCode(mode: 'link' | 'login', email: string) {
     if (!await this.ensureSession()) return authMessage({ message: 'no session' });
+    // If the e-mail carries a link, it reopens the game; supabase-js picks the session up from the URL.
+    const emailRedirectTo = location.origin + location.pathname;
     // Linking keeps the anonymous user (and its save); login never creates a new account.
     const { error } = mode === 'link'
-      ? await this.sb.auth.updateUser({ email })
-      : await this.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+      ? await this.sb.auth.updateUser({ email }, { emailRedirectTo })
+      : await this.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo } });
     if (error) console.warn('send code failed', error);
     return error ? authMessage(error) : null;
   }

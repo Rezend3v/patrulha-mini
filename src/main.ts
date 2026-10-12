@@ -38,6 +38,8 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const g = canvas.getContext('2d')!;
 const hud = document.getElementById('hud')!;
 const overlay = document.getElementById('overlay')!;
+// Read before createBackend(): supabase-js consumes and clears an e-mail link's hash.
+const urlHash = location.hash;
 const backend = createBackend();
 
 const SIZES: Record<Veiculo, [number, number]> = {
@@ -937,7 +939,8 @@ async function openCloud(note = '', ok = true) {
     conta = `<p class="ok">Conectado como <b>${esc(email)}</b>. Entre com este e-mail em qualquer aparelho para continuar seu progresso.</p>
       <button data-act="acc-logout">SAIR DESTA CONTA</button>`;
   } else if (pendingCode) {
-    conta = `<p class="art">Enviamos um código de 6 dígitos para <b>${esc(pendingCode.email)}</b>. Confira também o spam.</p>
+    conta = `<p class="art">Enviamos um e-mail para <b>${esc(pendingCode.email)}</b> (confira também o spam).
+      Digite o código de 6 dígitos ou, se vier só um link, abra-o <b>neste aparelho</b>.</p>
       <label class="nick">Código <input id="acc-code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" /></label>
       <button data-act="acc-verify" class="primario">CONFIRMAR</button>
       <button data-act="acc-cancel">CANCELAR</button>`;
@@ -985,6 +988,30 @@ async function accVerify() {
     return openCloud(`Bem-vindo de volta! Saldo: ${save.saldo} pts.`);
   }
   void openCloud('E-mail vinculado! Seu progresso está protegido.');
+}
+
+/** Result of opening an e-mail link, read before supabase-js clears the URL hash. */
+const emailReturn = (() => {
+  const h = new URLSearchParams(urlHash.slice(1));
+  if (h.get('error_description')) {
+    return { error: h.get('error_code') === 'otp_expired' ? 'Link inválido ou expirado. Peça um novo.' : 'Não foi possível confirmar o link.' };
+  }
+  const type = h.get('type');
+  return type && h.get('access_token') ? { type } : null;
+})();
+
+/** After an e-mail link: the account's progress replaces this device's (login), or confirms the link. */
+async function handleEmailReturn() {
+  if (!emailReturn) return;
+  history.replaceState(null, '', location.pathname);
+  pendingCode = null;
+  if ('error' in emailReturn) return openCloud(emailReturn.error, false);
+  if (emailReturn.type === 'magiclink') {
+    const cloud = await backend.loadSave();
+    if (cloud) adopt(cloud); else await backend.pushSave(save);
+    return openCloud(`Bem-vindo de volta! Saldo: ${save.saldo} pts.`);
+  }
+  return openCloud('E-mail confirmado! Seu progresso está protegido.');
 }
 
 async function accLogout() {
@@ -1283,5 +1310,8 @@ void backend.premiumSituacoes().then(extra => {
   if (extra.length) { pool = [...SITUACOES, ...extra]; bag = []; }
 });
 void openMenu();
-void syncSave().then(() => { if (mode === 'menu' && !overlay.querySelector('#claim')) void openMenu(); });
+void syncSave().then(() => {
+  if (emailReturn) void handleEmailReturn();
+  else if (mode === 'menu' && !overlay.querySelector('#claim')) void openMenu();
+});
 requestAnimationFrame(frame);
