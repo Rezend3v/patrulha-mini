@@ -24,7 +24,7 @@ Points from each shift (if positive) go into a balance saved in the browser (`sr
 Online, the save is mirrored to the `saves` table (newer of local/cloud wins). The menu's **Progresso em outro aparelho**
 screen issues a recovery code (stored hashed) that moves the save to another browser, or links an
 e-mail to the anonymous account (6-digit code by e-mail) so the player can sign in on any device.
-The Supabase e-mail templates **Change Email Address** and **Magic Link** must show `{{ .Token }}`.
+The Supabase e-mail templates **Confirm signup** (sent when an anonymous user adds an e-mail), **Change Email Address** and **Magic Link** must show `{{ .Token }}`.
 
 **On foot.** Stop the car and press **F** to get out; F at the driver door gets back in. To inspect a
 pulled-over vehicle, walk to its driver window (or its trunk, after a chase) — a yellow ring marks the spot —
