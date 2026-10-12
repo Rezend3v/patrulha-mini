@@ -10,6 +10,10 @@ import { drawRoad, drawVehicle, drawPatrol, drawCapybara, drawWalker, headlight,
 import { VIATURAS, FARDAS, viaturaById, fardaById } from './data/skins';
 import { loadSave, onPersist, persist, type Save } from './save';
 import { LOBBY_START, drawLobby, interactables, moveWalker, nearest, obstacles, type Interact } from './lobby';
+import { inject } from '@vercel/analytics';
+
+// Cookieless page-view counts; a no-op outside Vercel deployments.
+inject();
 
 // ---------- types & state ----------
 type Mode = 'menu' | 'lobby' | 'shop' | 'patrol' | 'pulling' | 'chase' | 'foot' | 'inspect' | 'report' | 'posto' | 'flash';

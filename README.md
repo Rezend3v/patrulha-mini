@@ -69,6 +69,7 @@ Titles use the "Press Start 2P" Google Font; offline it falls back to the monosp
 | `supabase/migrations/0001_init.sql` | runs, weekly leaderboard view, premium content, entitlements |
 | `supabase/migrations/0002_saves.sql` | cloud saves, recovery codes (`create_recovery_code`, `claim_save`) |
 | `supabase/migrations/0003_rpc.sql` | `submit_run` (score sanity checks) and `premium_situacoes` |
+| `supabase/migrations/0004_nick_filter.sql` | ranking-name filter (`nick_blocklist` table; blocked names become "agente") |
 
 ## Going online (Supabase)
 
@@ -77,6 +78,13 @@ Titles use the "Press Start 2P" Google Font; offline it falls back to the monosp
 3. Copy `.env.example` to `.env` and fill the URL and anon key (also set both in the Vercel project's environment variables).
 4. Insert paid situations into `situacoes_premium.data` (same shape as `Situacao`),
    and a row in `entitlements` for users who paid (later: from a PIX webhook).
+
+## Moderating ranking names
+
+Names are filtered on submit against `nick_blocklist` (accents, leetspeak and separators are normalised).
+Add a term in the Supabase SQL editor — `insert into nick_blocklist values ('termo', false);` (use `true`
+for short terms that should match only as a whole word). To clean a name that got through:
+`update runs set nick = 'agente' where nick = '...';`
 
 ## Content disclaimer
 
