@@ -80,6 +80,6 @@ export const CRIMES: Crime[] = [
     id: 'chassi', local: 'motor',
     achado: 'A numeração do chassi e do motor tem sinais de lixamento e remarcação; não confere com o documento.',
     tipo: 'Adulteração de sinal identificador', artigo: 'Art. 311 do Código Penal',
-    explicacao: 'Adulterar ou remarcar chassi ou qualquer sinal identificador de veículo é crime (3 a 6 anos). Quem conduz o veículo com sinal adulterado também pode responder por receptação.',
+    explicacao: 'Adulterar ou remarcar chassi ou qualquer sinal identificador de veículo é crime (3 a 6 anos). Quem conduz ou transporta veículo que devesse saber adulterado responde pelas mesmas penas (Art. 311, §2º, III, incluído pela Lei 14.562/2023).',
   },
 ];

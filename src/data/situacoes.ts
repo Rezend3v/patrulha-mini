@@ -1,6 +1,6 @@
 // Free situations bundled with the client. Paid ones come from the backend
-// (see supabase/functions/situacoes). Always re-check against the compiled CTB:
-// https://www.planalto.gov.br/ccivil_03/leis/l9503compilado.htm
+// (premium_situacoes in supabase/migrations/0003_rpc.sql). Always re-check against the compiled CTB:
+// https://www.planalto.gov.br/ccivil_03/leis/l9503compilado.htm (last checked 2026-10-12)
 
 export type Classe = 'Leve' | 'Média' | 'Grave' | 'Gravíssima';
 export type Veiculo = 'carro' | 'moto' | 'caminhao' | 'caminhonete';
@@ -27,7 +27,11 @@ export interface Situacao {
   /** index into MEDIDAS */
   medida: number;
   explicacao: string;
+  /** Art. 259, §4º: no points on the licence (e.g. infractions punished specifically with suspension, Art. 232). */
+  semPontos?: string;
 }
+
+const SUSPENSAO = 'Não pontua: infrações punidas especificamente com suspensão do direito de dirigir não somam pontos (Art. 259, §4º, III).';
 
 export const CLASSES: Classe[] = ['Leve', 'Média', 'Grave', 'Gravíssima'];
 
@@ -53,31 +57,31 @@ export const SITUACOES: Situacao[] = [
   {
     id: 'moto_sem_capacete', veiculo: 'moto', pista: 'sem_capacete', fuga: 0.3,
     cena: 'O motociclista trafegava pela rodovia sem capacete de segurança.',
-    artigo: 'Art. 244, I do CTB', classe: 'Gravíssima', medida: 3,
-    explicacao: 'Conduzir motocicleta sem capacete é gravíssima, com suspensão do direito de dirigir. A medida é o recolhimento do documento de habilitação.',
+    artigo: 'Art. 244, I do CTB', classe: 'Gravíssima', medida: 4, semPontos: SUSPENSAO,
+    explicacao: 'Conduzir motocicleta sem capacete é gravíssima, com multa e suspensão do direito de dirigir. Medidas: retenção do veículo até regularização e recolhimento do documento de habilitação.',
   },
   {
     id: 'garupa_sem_capacete', veiculo: 'moto', pista: 'sem_capacete', fuga: 0.25,
     cena: 'O condutor usa capacete, mas o passageiro na garupa está sem.',
-    artigo: 'Art. 244, II do CTB', classe: 'Gravíssima', medida: 3,
-    explicacao: 'Transportar passageiro sem capacete também é gravíssima e quem responde é o condutor; recolhe-se o documento de habilitação.',
+    artigo: 'Art. 244, II do CTB', classe: 'Gravíssima', medida: 4, semPontos: SUSPENSAO,
+    explicacao: 'Transportar passageiro sem capacete também é gravíssima, com suspensão do direito de dirigir, e quem responde é o condutor. Medidas: retenção do veículo até regularização e recolhimento do documento de habilitação.',
   },
   {
     id: 'crianca_moto', veiculo: 'moto', pista: 'nenhum', fuga: 0.15,
     cena: 'Na garupa da moto viaja uma criança de aproximadamente 7 anos.',
-    artigo: 'Art. 244, V do CTB', classe: 'Gravíssima', medida: 3,
-    explicacao: 'Transportar criança menor de 10 anos (ou sem condições de cuidar da própria segurança) em moto é gravíssima, com recolhimento do documento de habilitação.',
+    artigo: 'Art. 244, V do CTB', classe: 'Gravíssima', medida: 4, semPontos: SUSPENSAO,
+    explicacao: 'Transportar criança menor de 10 anos (ou sem condições de cuidar da própria segurança) em moto é gravíssima, com suspensão do direito de dirigir. Medidas: retenção do veículo até regularização e recolhimento do documento de habilitação.',
   },
   {
     id: 'alcool', veiculo: 'carro', pista: 'zigue_zague', fuga: 0.45,
     cena: 'O veículo fazia zigue-zague. O condutor tem hálito etílico e o etilômetro acusa influência de álcool.',
-    artigo: 'Art. 165 do CTB', classe: 'Gravíssima', medida: 4,
+    artigo: 'Art. 165 do CTB', classe: 'Gravíssima', medida: 4, semPontos: SUSPENSAO,
     explicacao: 'Dirigir sob influência de álcool é gravíssima com multa multiplicada por 10 e suspensão por 12 meses. Medidas: recolhimento do documento de habilitação e retenção do veículo.',
   },
   {
     id: 'recusa_bafometro', veiculo: 'carro', pista: 'zigue_zague', fuga: 0.4,
     cena: 'O condutor se recusa a fazer o teste do etilômetro.',
-    artigo: 'Art. 165-A do CTB', classe: 'Gravíssima', medida: 4,
+    artigo: 'Art. 165-A do CTB', classe: 'Gravíssima', medida: 4, semPontos: SUSPENSAO,
     explicacao: 'A recusa ao teste tem as mesmas penalidades e medidas do Art. 165, independentemente de sinais de embriaguez.',
   },
   {
@@ -120,6 +124,7 @@ export const SITUACOES: Situacao[] = [
     id: 'sem_documento', veiculo: 'carro', pista: 'nenhum', fuga: 0.05,
     cena: 'O condutor é habilitado, mas não porta nenhum documento obrigatório e não há versão digital.',
     artigo: 'Art. 232 do CTB', classe: 'Leve', medida: 1,
+    semPontos: 'Não pontua: a falta de documento de porte obrigatório não soma pontos na CNH (Art. 259, §4º, II).',
     explicacao: 'Conduzir sem documento de porte obrigatório é leve, com retenção do veículo até a apresentação do documento.',
   },
   {
@@ -180,8 +185,8 @@ export const SITUACOES: Situacao[] = [
   {
     id: 'cnh_vencida', veiculo: 'carro', pista: 'nenhum', fuga: 0.05,
     cena: 'A CNH do condutor venceu há cinco meses.',
-    artigo: 'Art. 162, V do CTB', classe: 'Gravíssima', medida: 4,
-    explicacao: 'Dirigir com a CNH vencida há mais de 30 dias é gravíssima. Medidas: recolhimento da CNH e retenção do veículo até a apresentação de condutor habilitado.',
+    artigo: 'Art. 162, V do CTB', classe: 'Gravíssima', medida: 1,
+    explicacao: 'Dirigir com a CNH vencida há mais de 30 dias é gravíssima. A medida é só a retenção do veículo até a apresentação de condutor habilitado; pela redação atual (Lei 14.440/2022) a CNH vencida não é recolhida.',
   },
   {
     id: 'categoria_errada', veiculo: 'caminhao', pista: 'nenhum', fuga: 0.1,
@@ -206,20 +211,20 @@ export const SITUACOES: Situacao[] = [
   {
     id: 'empinando', veiculo: 'moto', pista: 'empinando', fuga: 0.5,
     cena: 'O motociclista seguia equilibrando a moto apenas na roda traseira.',
-    artigo: 'Art. 244, III do CTB', classe: 'Gravíssima', medida: 3,
-    explicacao: 'Fazer malabarismo ou equilibrar-se em uma roda é gravíssima, com suspensão do direito de dirigir e recolhimento do documento de habilitação.',
+    artigo: 'Art. 244, III do CTB', classe: 'Gravíssima', medida: 4, semPontos: SUSPENSAO,
+    explicacao: 'Fazer malabarismo ou equilibrar-se em uma roda é gravíssima, com suspensão do direito de dirigir. Medidas: retenção do veículo até regularização e recolhimento do documento de habilitação.',
   },
   {
     id: 'moto_farol', veiculo: 'moto', pista: 'farol_moto', fuga: 0.15,
     cena: 'Em pleno dia, a motocicleta trafega com o farol apagado.',
-    artigo: 'Art. 244, IV do CTB', classe: 'Gravíssima', medida: 3,
-    explicacao: 'Para motocicletas, o farol deve ficar aceso dia e noite. Conduzir com os faróis apagados é gravíssima, com recolhimento do documento de habilitação.',
+    artigo: "Art. 250, I, 'd' do CTB", classe: 'Média', medida: 0,
+    explicacao: 'Motocicletas devem manter a luz baixa acesa também de dia. É média, sem medida administrativa. Antes era gravíssima pelo Art. 244, IV, revogado pela Lei 14.071/2020.',
   },
   {
     id: 'mao_guidom', veiculo: 'moto', pista: 'mao_guidom', fuga: 0.1,
     cena: 'O motociclista conduz com uma das mãos fora do guidom, segurando uma sacola.',
-    artigo: 'Art. 244, VII do CTB', classe: 'Média', medida: 0,
-    explicacao: 'Conduzir moto sem segurar o guidom com ambas as mãos (salvo para indicar manobras) é média, sem medida administrativa.',
+    artigo: 'Art. 244, VII do CTB', classe: 'Grave', medida: 2,
+    explicacao: 'Conduzir moto sem segurar o guidom com ambas as mãos (salvo para indicar manobras) é grave. O texto do CTB prevê "apreensão do veículo para regularização"; como a apreensão foi extinta pela Lei 13.281/2016, na prática o veículo é removido.',
   },
   // ---- velocidade e manobras ----
   {
@@ -243,7 +248,7 @@ export const SITUACOES: Situacao[] = [
   {
     id: 'racha', veiculo: 'carro', pista: 'radar', fuga: 0.6,
     cena: 'Dois carros emparelhados aceleravam disputando quem chega primeiro.',
-    artigo: 'Art. 173 do CTB', classe: 'Gravíssima', medida: 6,
+    artigo: 'Art. 173 do CTB', classe: 'Gravíssima', medida: 6, semPontos: SUSPENSAO,
     explicacao: 'Disputar corrida é gravíssima (multa x10) com suspensão do direito de dirigir. Medidas: recolhimento do documento de habilitação e remoção do veículo. Também pode configurar crime (Art. 308).',
   },
   // ---- conduta e equipamentos ----
@@ -287,7 +292,7 @@ export const SITUACOES: Situacao[] = [
   {
     id: 'transporte_pirata', veiculo: 'caminhonete', pista: 'nenhum', fuga: 0.2,
     cena: 'O condutor cobra passagem de 6 passageiros, mas o veículo não é licenciado para transporte remunerado.',
-    artigo: 'Art. 231, VIII do CTB', classe: 'Média', medida: 1,
-    explicacao: 'Efetuar transporte remunerado de pessoas sem licença para esse fim é média, com retenção do veículo.',
+    artigo: 'Art. 231, VIII do CTB', classe: 'Gravíssima', medida: 2,
+    explicacao: 'Efetuar transporte remunerado de pessoas ou bens sem licença para esse fim é gravíssima, com remoção do veículo (redação da Lei 13.855/2019; antes era média com retenção).',
   },
 ];

@@ -99,7 +99,7 @@ class SupabaseBackend implements Backend {
     return normalize({ ...data, updatedAt: Date.parse(data.updated_at) });
   }
 
-  async pushSave(s: Save) {
+  async pushSave(s: Save, retry = true): Promise<void> {
     if (!await this.ensureSession()) return;
     const { data } = await this.sb.auth.getSession();
     const { error } = await this.sb.from('saves').upsert({
@@ -107,6 +107,12 @@ class SupabaseBackend implements Backend {
       saldo: s.saldo, owned: s.owned, viatura: s.viatura, farda: s.farda,
       updated_at: new Date(s.updatedAt || Date.now()).toISOString(),
     });
+    // 23503: the cached session's user was deleted server-side; start a fresh one.
+    if (error?.code === '23503' && retry) {
+      await this.sb.auth.signOut({ scope: 'local' });
+      this.session = null;
+      return this.pushSave(s, false);
+    }
     if (error) console.warn('save push failed', error);
   }
 

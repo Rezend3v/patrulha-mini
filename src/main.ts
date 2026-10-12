@@ -612,6 +612,7 @@ function inspectSituacao(sit: Situacao | null, afterSearch: boolean) {
         <div><span>Medida</span><b>${esc(MEDIDAS[sit.medida])}</b></div>
       </div>
       <p class="art">${esc(sit.explicacao)}</p>
+      ${sit.semPontos ? `<p class="art">${esc(sit.semPontos)}</p>` : ''}
       ${bonusLine}
       <p class="pontos ${gained >= 0 ? 'ok' : 'bad'}">${gained >= 0 ? '+' : ''}${gained} pontos</p>
       <button data-act="ok" class="primario">SEGUIR PATRULHA <kbd>Enter</kbd></button>`, allOk ? 'acerto' : 'erro');
@@ -619,7 +620,8 @@ function inspectSituacao(sit: Situacao | null, afterSearch: boolean) {
   // The partner's surprise question: CNH points (Art. 259) or base fine (Art. 258). No penalty.
   const bonus = () => {
     const info = CLASSE_INFO[sit.classe];
-    const askPoints = Math.random() < 0.5;
+    // Infractions exempt from points (Art. 259, §4º) only get the fine question.
+    const askPoints = !sit.semPontos && Math.random() < 0.5;
     const options = askPoints ? CLASSES.map(c => `${CLASSE_INFO[c].pontos} pontos`) : CLASSES.map(c => CLASSE_INFO[c].multa);
     const title = askPoints
       ? `🎯 Bônus do parceiro: infração ${sit.classe.toLowerCase()} — quantos pontos na CNH?`
@@ -791,9 +793,10 @@ function renderFlash() {
          <div><span>Artigo</span><b>${esc(s.artigo)}</b></div>
          <div><span>Classificação</span><b>${esc(s.classe)}</b></div>
          <div><span>Medida</span><b>${esc(MEDIDAS[s.medida])}</b></div>
-         <div><span>CNH / multa base</span><b>${CLASSE_INFO[s.classe].pontos} pts · ${CLASSE_INFO[s.classe].multa}</b></div>
+         <div><span>CNH / multa base</span><b>${s.semPontos ? 'não pontua' : `${CLASSE_INFO[s.classe].pontos} pts`} · ${CLASSE_INFO[s.classe].multa}</b></div>
        </div>
        <p class="art">${esc(s.explicacao)}</p>
+       ${s.semPontos ? `<p class="art">${esc(s.semPontos)}</p>` : ''}
        <button data-act="flash-next" class="primario">PRÓXIMA <kbd>Espaço</kbd></button>`
     : `<p class="art">Responda de cabeça: artigo, classificação e medida administrativa.</p>
        <button data-act="flash-reveal" class="primario">REVELAR O VERSO <kbd>Espaço</kbd></button>`;

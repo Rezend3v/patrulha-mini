@@ -88,6 +88,11 @@ for short terms that should match only as a whole word). To clean a name that go
 
 ## Content disclaimer
 
-Situations were written against Lei 9.503/97 as compiled at
-planalto.gov.br. Re-check every article, class and measure before publishing —
-the law changes (e.g. Leis 14.071/2020 and 14.599/2023).
+Situations were written against Lei 9.503/97 as compiled at planalto.gov.br and last
+checked article by article on 2026-10-12 (crimes against the Código Penal, Lei 11.343/2006
+and Lei 10.826/2003). That check fixed: Art. 244 I–V measures, Art. 244 IV (revoked — moto
+headlight is now Art. 250, I, d), Art. 244 VII (grave), Art. 162 V (retention only),
+Art. 231 VIII (gravíssima/removal) and Art. 259 §4º (no licence points for 165, 165-A,
+173, 232 and 244 I–V — `semPontos`). Art. 244 VII's measure ("apreensão para
+regularização" in the text) is played as removal; confirm against the current MBFT.
+Re-check after every amendment to the CTB.
