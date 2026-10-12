@@ -8,7 +8,7 @@ import { createBackend, type Run } from './backend';
 import { sfx } from './audio';
 import { drawRoad, drawVehicle, drawPatrol, drawCapybara, drawWalker, headlight, tailGlow, PATROL_DIMS, type VehicleView } from './art';
 import { VIATURAS, FARDAS, viaturaById, fardaById } from './data/skins';
-import { loadSave, onPersist, persist, type Save } from './save';
+import { loadSave, normalize, onPersist, persist, type Save } from './save';
 import { LOBBY_START, drawLobby, interactables, moveWalker, nearest, obstacles, type Interact } from './lobby';
 import { inject } from '@vercel/analytics';
 
@@ -831,7 +831,11 @@ overlay.addEventListener('click', e => {
   else if (act === 'play') startShift();
   else if (act === 'submit') void submitRun();
   else if (act === 'menu') void openMenu();
-  else if (act === 'cloud') openCloud();
+  else if (act === 'cloud') void openCloud();
+  else if (act === 'acc-link' || act === 'acc-login') void accSend(act === 'acc-link' ? 'link' : 'login');
+  else if (act === 'acc-verify') void accVerify();
+  else if (act === 'acc-cancel') { pendingCode = null; void openCloud(); }
+  else if (act === 'acc-logout') void accLogout();
   else if (act === 'cloud-code') void cloudCode();
   else if (act === 'cloud-claim') void cloudClaim();
   else if (act === 'fuel' || act === 'life') postoBuy(act);
@@ -859,7 +863,7 @@ async function openMenu() {
     <p class="art">${pool.length} infrações · ${CRIMES.length} crimes · saldo ${save.saldo} pts · ${backend.online ? 'online · progresso salvo na nuvem' : 'modo offline (ranking local)'}</p>
     <button data-act="lobby" class="primario grande">▶ JOGAR <kbd>Enter</kbd></button>
     <button data-act="flash-menu">📚 ESTUDAR COM FLASHCARDS</button>
-    ${backend.online ? '<button data-act="cloud">☁️ PROGRESSO EM OUTRO APARELHO</button>' : ''}
+    ${backend.online ? '<button data-act="cloud">☁️ CONTA E PROGRESSO</button>' : ''}
     <h2>🏆 RANKING</h2><div id="lb">carregando…</div>`, 'menu');
   const lb = document.getElementById('lb');
   if (lb) lb.innerHTML = await leaderboardHtml();
@@ -920,18 +924,74 @@ async function submitRun() {
   if (lb) lb.innerHTML = '<h2>🏆 RANKING</h2>' + await leaderboardHtml();
 }
 
-// ---------- cloud save transfer ----------
-function openCloud(note = '', ok = true) {
+// ---------- account & cloud save transfer ----------
+/** Set while waiting for the 6-digit code sent by e-mail. */
+let pendingCode: { mode: 'link' | 'login'; email: string } | null = null;
+
+async function openCloud(note = '', ok = true) {
   mode = 'menu';
-  showOverlay(`<h2>☁️ PROGRESSO NA NUVEM</h2>
-    <p class="art">Seu saldo, viaturas e fardas ficam salvos na nuvem automaticamente neste navegador.
-    Para continuar em outro aparelho (ou se limpar os dados do navegador), gere um código aqui e digite-o no outro aparelho.</p>
-    ${note ? `<p class="${ok ? 'ok' : 'bad'}">${note}</p>` : ''}
+  const email = await backend.accountEmail();
+  const msg = note ? `<p class="${ok ? 'ok' : 'bad'}">${esc(note)}</p>` : '';
+  let conta: string;
+  if (email) {
+    conta = `<p class="ok">Conectado como <b>${esc(email)}</b>. Entre com este e-mail em qualquer aparelho para continuar seu progresso.</p>
+      <button data-act="acc-logout">SAIR DESTA CONTA</button>`;
+  } else if (pendingCode) {
+    conta = `<p class="art">Enviamos um código de 6 dígitos para <b>${esc(pendingCode.email)}</b>. Confira também o spam.</p>
+      <label class="nick">Código <input id="acc-code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" /></label>
+      <button data-act="acc-verify" class="primario">CONFIRMAR</button>
+      <button data-act="acc-cancel">CANCELAR</button>`;
+  } else {
+    conta = `<p class="art">Vincule um e-mail para não perder seu progresso e jogar em qualquer aparelho.</p>
+      <label class="nick">E-mail <input id="acc-email" type="email" maxlength="120" autocomplete="email" placeholder="voce@exemplo.com" /></label>
+      <button data-act="acc-link" class="primario">VINCULAR E-MAIL A ESTE PROGRESSO</button>
+      <button data-act="acc-login">JÁ TENHO CONTA: ENTRAR COM E-MAIL</button>`;
+  }
+  showOverlay(`<h2>☁️ CONTA E PROGRESSO</h2>
+    ${msg}
+    ${conta}
+    <h2>CÓDIGO DE RECUPERAÇÃO</h2>
+    <p class="art">Sem e-mail? Gere um código aqui e digite-o no outro aparelho.</p>
     <div id="cloud-code"></div>
     <button data-act="cloud-code">GERAR CÓDIGO DE RECUPERAÇÃO</button>
     <label class="nick">Tenho um código <input id="claim" maxlength="16" placeholder="XXXX-XXXX-XXXX" autocomplete="off" /></label>
     <button data-act="cloud-claim">RECUPERAR NESTE APARELHO</button>
     <button data-act="menu" class="primario">VOLTAR</button>`, 'menu');
+}
+
+async function accSend(modeSel: 'link' | 'login') {
+  const email = (document.getElementById('acc-email') as HTMLInputElement | null)?.value.trim().toLowerCase() ?? '';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return openCloud('Digite um e-mail válido.', false);
+  // Make sure the cloud has this device's progress before it gets tied to the e-mail.
+  if (modeSel === 'link') await backend.pushSave(save);
+  const err = await backend.sendCode(modeSel, email);
+  if (err) return openCloud(err, false);
+  pendingCode = { mode: modeSel, email };
+  void openCloud();
+}
+
+async function accVerify() {
+  if (!pendingCode) return openCloud();
+  const code = (document.getElementById('acc-code') as HTMLInputElement | null)?.value.replace(/\D/g, '') ?? '';
+  if (code.length !== 6) return openCloud('O código tem 6 dígitos.', false);
+  const { mode: m } = pendingCode;
+  const err = await backend.verifyCode(m, pendingCode.email, code);
+  if (err) return openCloud(err, false);
+  pendingCode = null;
+  if (m === 'login') {
+    // The account's progress replaces this device's.
+    const cloud = await backend.loadSave();
+    if (cloud) adopt(cloud); else await backend.pushSave(save);
+    return openCloud(`Bem-vindo de volta! Saldo: ${save.saldo} pts.`);
+  }
+  void openCloud('E-mail vinculado! Seu progresso está protegido.');
+}
+
+async function accLogout() {
+  await backend.logout();
+  // Progress stays with the account; this device starts fresh.
+  adopt(normalize({}));
+  void openCloud('Você saiu da conta. Entre com seu e-mail para recuperar o progresso.');
 }
 
 async function cloudCode() {
@@ -951,7 +1011,7 @@ async function cloudClaim() {
   if (!await backend.claimSave(code)) return openCloud('Código não encontrado.', false);
   const cloud = await backend.loadSave();
   if (cloud) adopt(cloud);
-  openCloud(`Progresso recuperado! Saldo: ${save.saldo} pts.`);
+  void openCloud(`Progresso recuperado! Saldo: ${save.saldo} pts.`);
 }
 
 // ---------- input ----------

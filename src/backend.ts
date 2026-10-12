@@ -26,6 +26,26 @@ export interface Backend {
   recoveryCode(): Promise<string | null>;
   /** Takes over the save that owns `code`. */
   claimSave(code: string): Promise<boolean>;
+  /** E-mail linked to the current account, or null (anonymous/offline). */
+  accountEmail(): Promise<string | null>;
+  /** Emails a 6-digit code. 'link' adds the e-mail to this account; 'login' signs into an existing one.
+   *  Resolves to an error message, or null on success. */
+  sendCode(mode: 'link' | 'login', email: string): Promise<string | null>;
+  verifyCode(mode: 'link' | 'login', email: string, code: string): Promise<string | null>;
+  /** Signs out; the next call starts a fresh anonymous account. */
+  logout(): Promise<void>;
+}
+
+/** Player-facing messages for Supabase auth errors. */
+function authMessage(e: { code?: string; message: string }): string {
+  switch (e.code) {
+    case 'email_exists': return 'Este e-mail já tem uma conta. Use "Entrar com e-mail".';
+    case 'otp_disabled': case 'user_not_found': return 'Não há conta com este e-mail. Vincule-o primeiro no aparelho onde você joga.';
+    case 'otp_expired': return 'Código inválido ou expirado. Peça um novo.';
+    case 'over_email_send_rate_limit': case 'over_request_rate_limit': return 'Muitas tentativas. Aguarde alguns minutos e tente de novo.';
+    case 'email_address_invalid': case 'validation_failed': return 'E-mail inválido.';
+    default: return 'Não foi possível concluir agora. Tente de novo.';
+  }
 }
 
 const LS_KEY = 'patrulhamini_runs';
@@ -46,6 +66,10 @@ class OfflineBackend implements Backend {
   async pushSave() {}
   async recoveryCode() { return null; }
   async claimSave() { return false; }
+  async accountEmail() { return null; }
+  async sendCode() { return 'Disponível apenas no modo online.'; }
+  async verifyCode() { return 'Disponível apenas no modo online.'; }
+  async logout() {}
 }
 
 interface SaveRow { saldo: number; owned: string[]; viatura: string; farda: string; updated_at: string }
@@ -128,6 +152,33 @@ class SupabaseBackend implements Backend {
     const { data, error } = await this.sb.rpc('claim_save', { code });
     if (error) { console.warn('claim failed', error); return false; }
     return data === true;
+  }
+
+  async accountEmail() {
+    if (!await this.ensureSession()) return null;
+    const { data } = await this.sb.auth.getUser();
+    return data.user?.email || null;
+  }
+
+  async sendCode(mode: 'link' | 'login', email: string) {
+    if (!await this.ensureSession()) return authMessage({ message: 'no session' });
+    // Linking keeps the anonymous user (and its save); login never creates a new account.
+    const { error } = mode === 'link'
+      ? await this.sb.auth.updateUser({ email })
+      : await this.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    if (error) console.warn('send code failed', error);
+    return error ? authMessage(error) : null;
+  }
+
+  async verifyCode(mode: 'link' | 'login', email: string, token: string) {
+    const { error } = await this.sb.auth.verifyOtp({ email, token, type: mode === 'link' ? 'email_change' : 'email' });
+    if (error) console.warn('verify failed', error);
+    return error ? authMessage(error) : null;
+  }
+
+  async logout() {
+    await this.sb.auth.signOut({ scope: 'local' });
+    this.session = null;
   }
 }
 
