@@ -23,8 +23,9 @@ Without `.env` it runs fully offline (ranking in localStorage). With it, the wee
 Points from each shift (if positive) go into a balance saved in the browser (`src/save.ts`), spent in the base.
 Online, the save is mirrored to the `saves` table (newer of local/cloud wins). The menu's **Progresso em outro aparelho**
 screen issues a recovery code (stored hashed) that moves the save to another browser, or links an
-e-mail to the anonymous account (6-digit code by e-mail) so the player can sign in on any device.
-The Supabase e-mail templates **Confirm signup** (sent when an anonymous user adds an e-mail), **Change Email Address** and **Magic Link** must show `{{ .Token }}`.
+e-mail to the anonymous account so the player can sign in on any device via a link sent by e-mail.
+In Supabase Auth → URL Configuration, the Site URL must be the production URL and the dev URL
+(`http://localhost:5173`) must be in the redirect allow list.
 
 **On foot.** Stop the car and press **F** to get out; F at the driver door gets back in. To inspect a
 pulled-over vehicle, walk to its driver window (or its trunk, after a chase) — a yellow ring marks the spot —

@@ -38,6 +38,8 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const g = canvas.getContext('2d')!;
 const hud = document.getElementById('hud')!;
 const overlay = document.getElementById('overlay')!;
+// Read before createBackend(): supabase-js consumes and clears an e-mail link's hash.
+const urlHash = location.hash;
 const backend = createBackend();
 
 const SIZES: Record<Veiculo, [number, number]> = {
@@ -833,8 +835,7 @@ overlay.addEventListener('click', e => {
   else if (act === 'menu') void openMenu();
   else if (act === 'cloud') void openCloud();
   else if (act === 'acc-link' || act === 'acc-login') void accSend(act === 'acc-link' ? 'link' : 'login');
-  else if (act === 'acc-verify') void accVerify();
-  else if (act === 'acc-cancel') { pendingCode = null; void openCloud(); }
+  else if (act === 'acc-cancel') { pendingLink = null; void openCloud(); }
   else if (act === 'acc-logout') void accLogout();
   else if (act === 'cloud-code') void cloudCode();
   else if (act === 'cloud-claim') void cloudClaim();
@@ -925,8 +926,8 @@ async function submitRun() {
 }
 
 // ---------- account & cloud save transfer ----------
-/** Set while waiting for the 6-digit code sent by e-mail. */
-let pendingCode: { mode: 'link' | 'login'; email: string } | null = null;
+/** Set after an e-mail link was sent, until the player picks another e-mail. */
+let pendingLink: { mode: 'link' | 'login'; email: string } | null = null;
 
 async function openCloud(note = '', ok = true) {
   mode = 'menu';
@@ -936,11 +937,12 @@ async function openCloud(note = '', ok = true) {
   if (email) {
     conta = `<p class="ok">Conectado como <b>${esc(email)}</b>. Entre com este e-mail em qualquer aparelho para continuar seu progresso.</p>
       <button data-act="acc-logout">SAIR DESTA CONTA</button>`;
-  } else if (pendingCode) {
-    conta = `<p class="art">Enviamos um código de 6 dígitos para <b>${esc(pendingCode.email)}</b>. Confira também o spam.</p>
-      <label class="nick">Código <input id="acc-code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" /></label>
-      <button data-act="acc-verify" class="primario">CONFIRMAR</button>
-      <button data-act="acc-cancel">CANCELAR</button>`;
+  } else if (pendingLink) {
+    conta = `<p class="art">Enviamos um link para <b>${esc(pendingLink.email)}</b> (confira também o spam).
+      ${pendingLink.mode === 'link'
+        ? 'Abra o link para confirmar o e-mail. Seu progresso fica salvo na conta.'
+        : 'Abra o link <b>neste aparelho</b> para entrar na sua conta.'}</p>
+      <button data-act="acc-cancel">USAR OUTRO E-MAIL</button>`;
   } else {
     conta = `<p class="art">Vincule um e-mail para não perder seu progresso e jogar em qualquer aparelho.</p>
       <label class="nick">E-mail <input id="acc-email" type="email" maxlength="120" autocomplete="email" placeholder="voce@exemplo.com" /></label>
@@ -964,27 +966,33 @@ async function accSend(modeSel: 'link' | 'login') {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return openCloud('Digite um e-mail válido.', false);
   // Make sure the cloud has this device's progress before it gets tied to the e-mail.
   if (modeSel === 'link') await backend.pushSave(save);
-  const err = await backend.sendCode(modeSel, email);
+  const err = await backend.sendLink(modeSel, email);
   if (err) return openCloud(err, false);
-  pendingCode = { mode: modeSel, email };
+  pendingLink = { mode: modeSel, email };
   void openCloud();
 }
 
-async function accVerify() {
-  if (!pendingCode) return openCloud();
-  const code = (document.getElementById('acc-code') as HTMLInputElement | null)?.value.replace(/\D/g, '') ?? '';
-  if (code.length !== 6) return openCloud('O código tem 6 dígitos.', false);
-  const { mode: m } = pendingCode;
-  const err = await backend.verifyCode(m, pendingCode.email, code);
-  if (err) return openCloud(err, false);
-  pendingCode = null;
-  if (m === 'login') {
-    // The account's progress replaces this device's.
+/** Result of opening an e-mail link, read before supabase-js clears the URL hash. */
+const emailReturn = (() => {
+  const h = new URLSearchParams(urlHash.slice(1));
+  if (h.get('error_description')) {
+    return { error: h.get('error_code') === 'otp_expired' ? 'Link inválido ou expirado. Peça um novo.' : 'Não foi possível confirmar o link.' };
+  }
+  const type = h.get('type');
+  return type && h.get('access_token') ? { type } : null;
+})();
+
+/** After an e-mail link: the account's progress replaces this device's (login), or confirms the link. */
+async function handleEmailReturn() {
+  if (!emailReturn) return;
+  history.replaceState(null, '', location.pathname);
+  if ('error' in emailReturn) return openCloud(emailReturn.error, false);
+  if (emailReturn.type === 'magiclink') {
     const cloud = await backend.loadSave();
     if (cloud) adopt(cloud); else await backend.pushSave(save);
     return openCloud(`Bem-vindo de volta! Saldo: ${save.saldo} pts.`);
   }
-  void openCloud('E-mail vinculado! Seu progresso está protegido.');
+  return openCloud('E-mail confirmado! Seu progresso está protegido.');
 }
 
 async function accLogout() {
@@ -1283,5 +1291,8 @@ void backend.premiumSituacoes().then(extra => {
   if (extra.length) { pool = [...SITUACOES, ...extra]; bag = []; }
 });
 void openMenu();
-void syncSave().then(() => { if (mode === 'menu' && !overlay.querySelector('#claim')) void openMenu(); });
+void syncSave().then(() => {
+  if (emailReturn) void handleEmailReturn();
+  else if (mode === 'menu' && !overlay.querySelector('#claim')) void openMenu();
+});
 requestAnimationFrame(frame);
